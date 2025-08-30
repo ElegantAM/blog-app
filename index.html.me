@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .rss-feed-container {
+            max-height: calc(100vh - 400px); /* Adjusted for new UI elements */
+            overflow-y: auto;
+        }
+        /* Custom scrollbar for a cleaner look */
+        .rss-feed-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .rss-feed-container::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+        .rss-feed-container::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 10px;
+        }
+        .rss-feed-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .ad-container {
+            height: 90px;
+            background-color: #e5e7eb;
+            border: 1px dashed #d1d5db;
+            color: #6b7280;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center p-4 min-h-screen">
+
+    <div class="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-6 md:p-8">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800 text-center mb-2">My Blog Reader</h1>
+        <p class="text-center text-gray-500 mb-6">Powered by RSS</p>
+
+        <!-- View and Search controls -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+            <button id="mainViewBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors duration-200 ease-in-out">
+                Main Feed
+            </button>
+            <button id="favoritesViewBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg shadow-sm transition-colors duration-200 ease-in-out">
+                Favorites
+            </button>
+            <button id="offlineViewBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg shadow-sm transition-colors duration-200 ease-in-out">
+                Offline Articles
+            </button>
+        </div>
+        
+        <!-- Premium Features & Tip Jar Section -->
+        <div id="monetizationSection" class="mb-4">
+            <div id="premiumSection" class="bg-yellow-100 border border-yellow-400 text-yellow-700 p-4 rounded-lg text-center hidden">
+                <p>Go premium to unlock unlimited favorites and an ad-free experience!</p>
+                <button id="goPremiumBtn" class="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors">
+                    Go Premium
+                </button>
+            </div>
+            <div id="tipJarSection" class="bg-gray-100 p-4 rounded-lg text-center hidden">
+                <p class="text-gray-600">Enjoying the app? Consider leaving a tip!</p>
+                <button id="tipBtn" class="mt-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors">
+                    Buy Me a Coffee
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mb-4">
+            <input type="text" id="searchBar" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search articles...">
+        </div>
+
+        <!-- Pre-defined Feed Buttons -->
+        <div id="predefinedButtons" class="flex flex-wrap justify-center gap-2 mb-6">
+            <button data-url="https://www.theverge.com/rss/index.xml" class="predefined-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200 ease-in-out">
+                The Verge
+            </button>
+            <button data-url="https://techcrunch.com/feed/" class="predefined-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200 ease-in-out">
+                TechCrunch
+            </button>
+            <button data-url="http://arstechnica.com/feed/" class="predefined-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors duration-200 ease-in-out">
+                Ars Technica
+            </button>
+        </div>
+        
+        <!-- URL Input and Fetch/Save Buttons -->
+        <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <input type="text" id="rssUrl" class="flex-grow p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter RSS Feed URL">
+            <button id="fetchButton" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors duration-200 ease-in-out">
+                Fetch Feed
+            </button>
+            <button id="saveFeedBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg shadow-sm transition-colors duration-200 ease-in-out">
+                Save Feed
+            </button>
+        </div>
+
+        <button id="downloadBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 ease-in-out mb-6 hidden">
+            Download Feed
+        </button>
+
+        <!-- Ad Banner -->
+        <div id="adBanner" class="ad-container rounded-lg shadow-md mb-6 hidden">
+            Advertisement
+        </div>
+
+        <div id="loading" class="flex justify-center items-center py-10 hidden">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="messageBox" class="bg-red-100 border border-red-400 text-red-700 p-4 rounded-lg hidden" role="alert">
+            <p id="messageText"></p>
+        </div>
+
+        <div id="feedContent" class="rss-feed-container space-y-4">
+            <!-- RSS feed content will be dynamically inserted here -->
+        </div>
+
+        <!-- User ID display -->
+        <div id="userIdDisplay" class="text-center text-xs text-gray-400 mt-4"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set Firestore log level for debugging
+        setLogLevel('debug');
+
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let db, auth, userId, userFavorites, userFavoriteFeeds, userIsPremium = false;
+        const FAVORITES_LIMIT = 5;
+
+        const mainViewBtn = document.getElementById('mainViewBtn');
+        const favoritesViewBtn = document.getElementById('favoritesViewBtn');
+        const offlineViewBtn = document.getElementById('offlineViewBtn');
+        const fetchButton = document.getElementById('fetchButton');
+        const saveFeedBtn = document.getElementById('saveFeedBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const goPremiumBtn = document.getElementById('goPremiumBtn');
+        const tipBtn = document.getElementById('tipBtn');
+        const rssUrlInput = document.getElementById('rssUrl');
+        const feedContent = document.getElementById('feedContent');
+        const loading = document.getElementById('loading');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const searchBar = document.getElementById('searchBar');
+        const predefinedButtons = document.querySelectorAll('.predefined-btn');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const predefinedButtonsContainer = document.getElementById('predefinedButtons');
+        const premiumSection = document.getElementById('premiumSection');
+        const tipJarSection = document.getElementById('tipJarSection');
+        const adBanner = document.getElementById('adBanner');
+        
+        let articles = [];
+        let currentView = 'main';
+
+        function showMessage(text, isError = false) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+            messageBox.classList.toggle('bg-red-100', isError);
+            messageBox.classList.toggle('border-red-400', isError);
+            messageBox.classList.toggle('text-red-700', isError);
+            messageBox.classList.toggle('bg-green-100', !isError);
+            messageBox.classList.toggle('border-green-400', !isError);
+            messageBox.classList.toggle('text-green-700', !isError);
+        }
+
+        function renderArticles(items, isFavoriteView = false) {
+            feedContent.innerHTML = '';
+            if (items.length === 0) {
+                showMessage(`No articles found in this feed.`, true);
+                return;
+            }
+            items.forEach(item => {
+                const title = item.title || 'No Title';
+                const link = item.link || '#';
+                const description = item.description || 'No description available.';
+                const pubDate = item.pubDate ? new Date(item.pubDate).toLocaleDateString() : 'Date unavailable';
+
+                // Create a unique ID for the article based on its link
+                const articleId = btoa(link);
+                const isSaved = userFavorites.some(fav => fav.id === articleId);
+                
+                const saveButtonHtml = `
+                    <button class="save-btn ml-auto text-yellow-400 hover:text-yellow-600 transition-colors" data-id="${articleId}" data-title="${title}" data-link="${link}" data-description="${description}" data-pubdate="${pubDate}">
+                        <svg class="w-6 h-6 ${isSaved ? 'text-yellow-500' : 'text-gray-400'}" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                        </svg>
+                    </button>
+                `;
+
+                const articleHtml = `
+                    <div class="bg-gray-50 rounded-lg p-4 transition-transform transform hover:scale-105 shadow-sm hover:shadow-lg flex items-start">
+                        <div class="flex-grow">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-2">
+                                <a href="${link}" target="_blank" class="hover:text-blue-600 transition-colors">${title}</a>
+                            </h3>
+                            <p class="text-gray-600 text-sm mb-3">${description}</p>
+                            <div class="flex items-center text-xs text-gray-400">
+                                <span class="mr-2">Published: ${pubDate}</span>
+                                <a href="${link}" target="_blank" class="text-blue-500 hover:text-blue-700 transition-colors font-medium">Read more →</a>
+                            </div>
+                        </div>
+                        ${isFavoriteView ? '' : saveButtonHtml}
+                    </div>
+                `;
+                feedContent.insertAdjacentHTML('beforeend', articleHtml);
+            });
+
+            // Add event listeners to the new save buttons
+            if (!isFavoriteView) {
+                document.querySelectorAll('.save-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        const item = {
+                            id: id,
+                            title: e.currentTarget.dataset.title,
+                            link: e.currentTarget.dataset.link,
+                            description: e.currentTarget.dataset.description,
+                            pubDate: e.currentTarget.dataset.pubdate
+                        };
+                        
+                        const favRef = doc(db, `artifacts/${appId}/users/${userId}/favorites`, id);
+
+                        try {
+                            const isSaved = userFavorites.some(fav => fav.id === id);
+
+                            if (isSaved) {
+                                // Already saved, so delete
+                                await deleteDoc(favRef);
+                                showMessage("Article removed from favorites.", false);
+                            } else {
+                                // Not saved, check limit before adding
+                                if (!userIsPremium && userFavorites.length >= FAVORITES_LIMIT) {
+                                    showMessage(`You have reached the free limit of ${FAVORITES_LIMIT} favorites. Go premium to save more!`, true);
+                                    return;
+                                }
+                                await setDoc(favRef, item);
+                                showMessage("Article saved to favorites!", false);
+                            }
+                        } catch (error) {
+                            console.error('Error saving/deleting favorite:', error);
+                            showMessage("Failed to update favorites. Check console for details.", true);
+                        }
+                    });
+                });
+            }
+        }
+
+        function renderFavoriteFeeds() {
+            feedContent.innerHTML = '';
+            if (userFavoriteFeeds.length === 0) {
+                showMessage("No favorite feeds saved yet.", true);
+                return;
+            }
+            userFavoriteFeeds.forEach(feed => {
+                const feedHtml = `
+                    <div class="bg-gray-50 rounded-lg p-4 shadow-sm flex items-center justify-between">
+                        <span class="truncate text-gray-800">${feed.url}</span>
+                        <div class="flex gap-2">
+                            <button data-url="${feed.url}" class="load-feed-btn bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-1 px-3 rounded-md transition-colors">
+                                Load
+                            </button>
+                            <button data-id="${feed.id}" class="delete-feed-btn bg-red-500 hover:bg-red-600 text-white text-xs font-semibold py-1 px-3 rounded-md transition-colors">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                feedContent.insertAdjacentHTML('beforeend', feedHtml);
+            });
+
+            document.querySelectorAll('.load-feed-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    rssUrlInput.value = btn.dataset.url;
+                    fetchRssFeed();
+                });
+            });
+
+            document.querySelectorAll('.delete-feed-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    const feedRef = doc(db, `artifacts/${appId}/users/${userId}/favoriteFeeds`, id);
+                    try {
+                        await deleteDoc(feedRef);
+                        showMessage("Feed removed successfully.", false);
+                    } catch (error) {
+                        console.error('Error deleting feed:', error);
+                        showMessage("Failed to delete feed. Check console for details.", true);
+                    }
+                });
+            });
+        }
+
+        function renderOfflineArticles() {
+            feedContent.innerHTML = '';
+            const offlineArticles = JSON.parse(localStorage.getItem('offlineArticles') || '[]');
+            if (offlineArticles.length === 0) {
+                showMessage("No articles have been downloaded for offline viewing.", true);
+                return;
+            }
+            renderArticles(offlineArticles, true);
+        }
+
+        function filterArticles() {
+            const query = searchBar.value.toLowerCase();
+            let itemsToFilter;
+            if (currentView === 'main') {
+                itemsToFilter = articles;
+            } else if (currentView === 'favorites') {
+                itemsToFilter = userFavorites;
+            } else if (currentView === 'offline') {
+                itemsToFilter = JSON.parse(localStorage.getItem('offlineArticles') || '[]');
+            }
+
+            const filtered = itemsToFilter.filter(item => {
+                const title = item.title?.toLowerCase() || '';
+                const description = item.description?.toLowerCase() || '';
+                return title.includes(query) || description.includes(query);
+            });
+            renderArticles(filtered, currentView !== 'main');
+        }
+
+        async function fetchRssFeed() {
+            const url = rssUrlInput.value.trim();
+            if (!url) {
+                showMessage("Please enter a valid RSS feed URL.", true);
+                return;
+            }
+
+            loading.classList.remove('hidden');
+            feedContent.innerHTML = '';
+            messageBox.classList.add('hidden');
+            searchBar.value = '';
+
+            const proxyUrl = 'https://api.rss2json.com/v1/api.json?rss_url=';
+            
+            try {
+                const response = await fetch(proxyUrl + encodeURIComponent(url));
+                const data = await response.json();
+
+                if (data.status === 'error') {
+                    throw new Error(data.message);
+                }
+
+                articles = data.items || [];
+                renderArticles(articles);
+                downloadBtn.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error fetching RSS feed:', error);
+                showMessage(`Failed to load feed: ${error.message}`, true);
+                articles = [];
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+        
+        function downloadCurrentFeed() {
+            if (articles.length === 0) {
+                showMessage("No articles to download. Please fetch a feed first.", true);
+                return;
+            }
+            try {
+                localStorage.setItem('offlineArticles', JSON.stringify(articles));
+                showMessage(`Successfully downloaded ${articles.length} articles!`, false);
+            } catch (error) {
+                console.error("Error saving to localStorage:", error);
+                showMessage("Failed to save articles for offline reading.", true);
+            }
+        }
+
+        async function saveFeedToFavorites() {
+            if (!userId) {
+                showMessage("Authentication not ready. Please wait.", true);
+                return;
+            }
+            const url = rssUrlInput.value.trim();
+            if (!url) {
+                showMessage("Please enter a URL to save.", true);
+                return;
+            }
+            const feedRef = doc(collection(db, `artifacts/${appId}/users/${userId}/favoriteFeeds`));
+            try {
+                await setDoc(feedRef, { id: feedRef.id, url: url });
+                showMessage("Feed saved to favorites!", false);
+            } catch (error) {
+                console.error('Error saving feed:', error);
+                showMessage("Failed to save feed. Check console for details.", true);
+            }
+        }
+        
+        // Simulates a premium upgrade by setting a flag in Firestore and updating the UI
+        async function goPremium() {
+            if (!userId) return;
+            const userRef = doc(db, `artifacts/${appId}/users`, userId);
+            try {
+                await setDoc(userRef, { isPremium: true }, { merge: true });
+                userIsPremium = true;
+                premiumSection.classList.add('hidden');
+                adBanner.classList.add('hidden');
+                showMessage("Congratulations! You are now premium.", false);
+            } catch (error) {
+                console.error("Error upgrading user:", error);
+                showMessage("Failed to upgrade. Please try again.", true);
+            }
+        }
+
+        // Simulates a tip/donation
+        function tipJar() {
+            showMessage("Thank you for your support! (Simulated donation)", false);
+        }
+
+        function switchView(view) {
+            currentView = view;
+            searchBar.value = '';
+            messageBox.classList.add('hidden');
+            feedContent.innerHTML = '';
+            
+            // Manage button active states
+            const allViewBtns = [mainViewBtn, favoritesViewBtn, offlineViewBtn];
+            allViewBtns.forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-800');
+            });
+            document.getElementById(`${view}ViewBtn`).classList.remove('bg-gray-200', 'text-gray-800');
+            document.getElementById(`${view}ViewBtn`).classList.add('bg-blue-600', 'text-white');
+            
+            // Hide/show relevant UI elements
+            const isMainView = view === 'main';
+            predefinedButtonsContainer.classList.toggle('hidden', !isMainView);
+            rssUrlInput.classList.toggle('hidden', !isMainView);
+            fetchButton.classList.toggle('hidden', !isMainView);
+            saveFeedBtn.classList.toggle('hidden', !isMainView);
+            downloadBtn.classList.toggle('hidden', !isMainView);
+            
+            // Monetization elements visibility
+            if (userIsPremium) {
+                premiumSection.classList.add('hidden');
+                adBanner.classList.add('hidden');
+            } else {
+                premiumSection.classList.toggle('hidden', !isMainView);
+                adBanner.classList.toggle('hidden', !isMainView);
+            }
+            tipJarSection.classList.toggle('hidden', !isMainView);
+            
+            if (view === 'favorites') {
+                renderArticles(userFavorites, true);
+                renderFavoriteFeeds();
+            } else if (view === 'offline') {
+                renderOfflineArticles();
+            } else { // 'main' view
+                renderArticles(articles);
+            }
+        }
+
+        async function initFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = `User ID: ${userId}`;
+                        setupFirestoreListeners();
+                        // Check for premium status
+                        const userRef = doc(db, `artifacts/${appId}/users`, userId);
+                        const userDoc = await getDoc(userRef);
+                        userIsPremium = userDoc.exists() && userDoc.data().isPremium === true;
+                        
+                        // Set initial visibility of monetization sections based on premium status
+                        premiumSection.classList.toggle('hidden', userIsPremium);
+                        adBanner.classList.toggle('hidden', userIsPremium);
+                        tipJarSection.classList.remove('hidden');
+
+                        fetchRssFeed(); // Initial load
+                    } else {
+                        userIdDisplay.textContent = 'Not authenticated.';
+                        userIsPremium = false;
+                        premiumSection.classList.remove('hidden');
+                        adBanner.classList.remove('hidden');
+                        tipJarSection.classList.remove('hidden');
+                    }
+                });
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                showMessage('Firebase initialization failed. Favorites and premium features will not work.', true);
+            }
+        }
+
+        function setupFirestoreListeners() {
+            // Listen for real-time updates on favorite articles
+            const favArticlesRef = collection(db, `artifacts/${appId}/users/${userId}/favorites`);
+            onSnapshot(favArticlesRef, (snapshot) => {
+                userFavorites = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (currentView === 'favorites') {
+                    renderArticles(userFavorites, true);
+                }
+            });
+
+            // Listen for real-time updates on favorite feeds
+            const favFeedsRef = collection(db, `artifacts/${appId}/users/${userId}/favoriteFeeds`);
+            onSnapshot(favFeedsRef, (snapshot) => {
+                userFavoriteFeeds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (currentView === 'favorites') {
+                    renderFavoriteFeeds();
+                }
+            });
+        }
+        
+        // Initial setup
+        initFirebase();
+
+        // Event listeners
+        fetchButton.addEventListener('click', fetchRssFeed);
+        saveFeedBtn.addEventListener('click', saveFeedToFavorites);
+        downloadBtn.addEventListener('click', downloadCurrentFeed);
+        searchBar.addEventListener('input', filterArticles);
+        mainViewBtn.addEventListener('click', () => switchView('main'));
+        favoritesViewBtn.addEventListener('click', () => switchView('favorites'));
+        offlineViewBtn.addEventListener('click', () => switchView('offline'));
+        goPremiumBtn.addEventListener('click', goPremium);
+        tipBtn.addEventListener('click', tipJar);
+
+        predefinedButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                rssUrlInput.value = button.dataset.url;
+                fetchRssFeed();
+            });
+        });
+    </script>
+</body>
+</html>
